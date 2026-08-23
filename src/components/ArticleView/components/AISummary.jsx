@@ -88,7 +88,7 @@ export default function AISummary({ articleId }) {
           size="sm"
           variant="tertiary"
           onPress={() => requestSummaryGeneration(articleId)}
-          className="gap-1.5 text-xs text-muted hover:text-accent font-medium rounded-xl px-3 py-1.5 border border-dashed border-foreground/15 hover:border-accent/40 bg-default/20 hover:bg-accent/5 transition-colors cursor-pointer"
+          className="gap-1.5 text-xs text-muted hover:text-accent font-medium rounded-xl px-3 py-1.5 border border-dashed border-foreground/15 hover:border-accent/40 bg-surface dark:bg-overlay hover:bg-accent/5 transition-colors cursor-pointer shadow-sm"
         >
           <Sparkles className="size-3.5 text-accent" />
           <span>{t("articleView.aiSummarize") || "Generate AI TL;DR"}</span>
@@ -107,17 +107,18 @@ export default function AISummary({ articleId }) {
       size="line"
       theme={$currentThemeMode}
     >
-      <div className="ai-summary p-4.5 bg-background rounded-2xl mb-4 border border-foreground/5 shadow-sm">
-        <div className="flex gap-2 h-9 items-center">
+      <div className="ai-summary p-5 sm:p-6 bg-surface dark:bg-overlay rounded-2xl mb-6 border border-foreground/10 shadow-custom-sm">
+        {/* 卡片顶部标题栏 */}
+        <div className="flex gap-2 h-8 items-center mb-1">
           <div className="flex items-center gap-1.5 h-auto">
-            <Sparkles className="size-4 text-accent shrink-0" />
-            <span className="text-sm font-semibold text-accent">
-              {t("articleView.aiSummary") || "AI Summary"}
+            <Sparkles className="size-4.5 text-accent shrink-0" />
+            <span className="text-sm font-bold text-accent tracking-wide">
+              {t("articleView.aiSummary") || "AI 总结"}
             </span>
           </div>
           {state.model && (
-            <span className="text-[11px] font-mono text-muted bg-default/40 px-2.5 py-0.5 rounded-full flex items-center gap-1 ml-1.5 border border-foreground/5">
-              <Bot className="size-3.5 text-muted/70" />
+            <span className="text-[11px] font-mono text-muted bg-default/40 px-2.5 py-0.5 rounded-full flex items-center gap-1 ml-1.5 border border-foreground/10">
+              <Bot className="size-3.5 text-muted/80" />
               {state.model}
             </span>
           )}
@@ -129,23 +130,26 @@ export default function AISummary({ articleId }) {
           )}
         </div>
 
+        {/* 生成等待中 */}
         {isWaiting && (
-          <div className="flex items-center gap-2 text-sm text-muted py-2">
+          <div className="flex items-center gap-2 text-sm text-muted py-3">
             <Spinner size="sm" color="current" />
-            <span>{t("articleView.aiSummaryGenerating") || "Generating summary..."}</span>
+            <span>{t("articleView.aiSummaryGenerating") || "正在生成总结..."}</span>
           </div>
         )}
 
-        {state.error && <p className="text-sm text-danger">{state.error}</p>}
+        {/* 错误提示 */}
+        {state.error && <p className="text-sm text-danger py-2">{state.error}</p>}
 
+        {/* 总结正文 Markdown 渲染 */}
         {displayedText && (
-          <div className="ai-summary-body pt-2 text-sm text-foreground/90">
+          <div className="ai-summary-body pt-2 text-sm text-foreground">
             {parsedHtml ? (
-              <div className="prose dark:prose-invert prose-sm max-w-none leading-relaxed prose-headings:text-foreground prose-headings:font-semibold prose-headings:text-sm prose-headings:mt-3 prose-headings:mb-1.5 prose-p:my-1.5 prose-ul:my-1 prose-ul:pl-4 prose-li:my-0.5 prose-strong:text-foreground prose-strong:font-semibold">
+              <div className="prose dark:prose-invert prose-sm max-w-none text-foreground leading-relaxed prose-headings:text-foreground prose-headings:font-bold prose-headings:text-sm prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-p:text-foreground/90 prose-p:leading-relaxed prose-ul:my-2 prose-ul:pl-4 prose-li:my-1 prose-li:text-foreground/90 prose-strong:text-foreground prose-strong:font-bold">
                 {parse(parsedHtml)}
               </div>
             ) : (
-              <div className="whitespace-pre-line leading-relaxed">
+              <div className="whitespace-pre-line leading-relaxed text-foreground/90">
                 {displayedText}
               </div>
             )}
