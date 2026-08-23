@@ -2,6 +2,17 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils.js";
 import { useTranslation } from "react-i18next";
 
+// 准确计算元素相对于可滚动容器的静态相对顶部偏移
+function getElementOffsetTop(el, container) {
+  let top = 0;
+  let current = el;
+  while (current && current !== container && current !== document.body) {
+    top += current.offsetTop || 0;
+    current = current.offsetParent;
+  }
+  return top;
+}
+
 export default function ArticleTOC({ scrollContainerRef, contentContainerRef, articleId }) {
   const { t } = useTranslation();
   const [headings, setHeadings] = useState([]);
@@ -50,7 +61,7 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
     return () => clearTimeout(timer);
   }, [articleId, extractHeadings]);
 
-  // 2. 监听滚动并计算总体进度及各章节进度
+  // 2. 监听滚动并准确计算各章节进度与回滚
   const handleScroll = useCallback(() => {
     const scrollEl = scrollContainerRef?.current;
     if (!scrollEl || headings.length === 0) return;
@@ -63,32 +74,35 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
     const progress = Math.min(100, Math.max(0, Math.round((scrollTop / maxScroll) * 100)));
     setOverallProgress(progress);
 
-    // 计算每个章节的绝对偏移
-    const offsets = headings.map((h) => {
-      const rect = h.el.getBoundingClientRect();
-      const containerRect = scrollEl.getBoundingClientRect();
-      return rect.top - containerRect.top + scrollTop;
-    });
+    // 计算每个章节相对 scrollEl 的顶部位置
+    const offsets = headings.map((h) => getElementOffsetTop(h.el, scrollEl));
 
     const newSectionProgress = {};
     let currentActive = headings[0].id;
 
     for (let i = 0; i < headings.length; i++) {
-      const start = offsets[i] - 100;
-      const end = i < headings.length - 1 ? offsets[i + 1] - 100 : scrollHeight;
+      const start = Math.max(0, offsets[i] - 120);
+      const end = i < headings.length - 1 ? Math.max(start + 1, offsets[i + 1] - 120) : scrollHeight;
       const id = headings[i].id;
 
-      if (scrollTop < start) {
+      if (scrollTop <= start) {
+        // 未滚动到该章节：进度为 0%（往回滚动时立即回滚为空）
         newSectionProgress[id] = 0;
       } else if (scrollTop >= end) {
+        // 已读过该章节：进度为 100%
         newSectionProgress[id] = 100;
         currentActive = id;
       } else {
+        // 正在阅读该章节：按比例精确填充
         const span = Math.max(1, end - start);
         const p = Math.min(100, Math.max(0, Math.round(((scrollTop - start) / span) * 100)));
         newSectionProgress[id] = p;
         currentActive = id;
       }
+    }
+
+    if (scrollTop < Math.max(0, offsets[0] - 120)) {
+      currentActive = headings[0].id;
     }
 
     setSectionProgresses(newSectionProgress);
@@ -107,7 +121,7 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
     };
   }, [scrollContainerRef, handleScroll]);
 
-  // 3. 防抖 Hover 处理（解决鼠标移向弹出面板时丢失 hover 的问题）
+  // 3. 防抖 Hover 处理
   const handleMouseEnter = () => {
     if (hoverTimerRef.current) {
       clearTimeout(hoverTimerRef.current);
@@ -120,7 +134,7 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
     clearTimeout(hoverTimerRef.current);
     hoverTimerRef.current = setTimeout(() => {
       setIsHovered(false);
-    }, 280); // 280ms 宽容延迟，防止鼠标移动穿过缝隙时闪退
+    }, 280);
   };
 
   // 4. 点击跳转锚点
@@ -128,9 +142,7 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
     const el = document.getElementById(id);
     const scrollEl = scrollContainerRef?.current;
     if (el && scrollEl) {
-      const containerRect = scrollEl.getBoundingClientRect();
-      const elRect = el.getBoundingClientRect();
-      const targetScrollTop = scrollEl.scrollTop + (elRect.top - containerRect.top) - 20;
+      const targetScrollTop = getElementOffsetTop(el, scrollEl) - 40;
 
       scrollEl.scrollTo({
         top: Math.max(0, targetScrollTop),
@@ -146,7 +158,7 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
     return null;
   }
 
-  // 骨架条左对齐宽度定义（图 3 风格）
+  // 骨架条左对齐宽度定义（图 1 风格）
   const getBarWidthClass = (level) => {
     switch (level) {
       case 1:
@@ -169,11 +181,10 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
       onMouseLeave={handleMouseLeave}
       className={cn(
         "article-toc-container fixed z-40 select-none",
-        // 贴合文章正文右侧，并与右侧滚动条保持安全间距（避免遮挡滚动条）
         "right-7 md:right-9 lg:right-10 top-32"
       )}
     >
-      {/* 1. 右侧极简骨架线（无臃肿白底卡片，图 3 清爽风格） */}
+      {/* 1. 右侧极简骨架线（精准支持往回滚动回滚） */}
       <div
         onClick={() => setIsPinned(!isPinned)}
         className={cn(
@@ -192,7 +203,7 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
 
             return (
               <div key={item.id} className="flex items-center gap-1">
-                {/* 当前活动章节指示点（图 3 特色） */}
+                {/* 当前活动章节指示点 */}
                 <div
                   className={cn(
                     "size-1 rounded-full transition-all duration-150",
@@ -248,7 +259,7 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
         </div>
       </div>
 
-      {/* 2. 悬浮展开的完整大纲面板（无缝连接，支持自由悬停操作） */}
+      {/* 2. 悬浮展开的完整大纲面板 */}
       {showPopover && (
         <div
           onMouseEnter={handleMouseEnter}
@@ -257,11 +268,10 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
             "absolute right-full top-0 mr-2.5 w-76 max-h-[72vh] flex flex-col",
             "bg-background/95 dark:bg-overlay/95 backdrop-blur-2xl border border-foreground/10 rounded-2xl shadow-2xl overflow-hidden",
             "animate-in fade-in-50 zoom-in-95 duration-150 z-50",
-            // 透明桥接垫片，保证从 Minimap 移动到 Popover 鼠标绝不脱离
             "before:absolute before:-right-3 before:top-0 before:w-4 before:h-full before:content-['']"
           )}
         >
-          {/* 大纲标题栏（正确使用 i18n 本地化） */}
+          {/* 大纲标题栏 */}
           <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-foreground/10 text-xs font-semibold text-muted tracking-wider">
             <span>{t("articleView.toc")}</span>
             <span className="font-mono text-accent font-bold">{overallProgress}%</span>

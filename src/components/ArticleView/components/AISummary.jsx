@@ -88,10 +88,10 @@ export default function AISummary({ articleId }) {
           size="sm"
           variant="tertiary"
           onPress={() => requestSummaryGeneration(articleId)}
-          className="gap-1.5 text-xs text-muted hover:text-accent font-medium rounded-xl px-3 py-1.5 border border-dashed border-foreground/15 hover:border-accent/40 bg-surface dark:bg-overlay hover:bg-accent/5 transition-colors cursor-pointer shadow-sm"
+          className="gap-1.5 text-xs text-muted hover:text-accent font-medium rounded-2xl px-3.5 py-1.5 border border-dashed border-accent/25 hover:border-accent/50 bg-accent/[0.03] dark:bg-accent/[0.07] hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
         >
           <Sparkles className="size-3.5 text-accent" />
-          <span>{t("articleView.aiSummarize") || "Generate AI TL;DR"}</span>
+          <span>{t("articleView.aiSummarize") || "生成 AI 摘要"}</span>
         </Button>
       </div>
     );
@@ -107,9 +107,10 @@ export default function AISummary({ articleId }) {
       size="line"
       theme={$currentThemeMode}
     >
-      <div className="ai-summary p-5 sm:p-6 bg-surface dark:bg-overlay rounded-2xl mb-6 border border-foreground/10 shadow-custom-sm">
+      {/* AI 总结卡片：浅色为柔和浅紫底色，深色为沉浸暗夜微紫底色（严格匹配截图效果） */}
+      <div className="ai-summary p-5 sm:p-6 rounded-3xl mb-6 bg-accent/[0.04] dark:bg-[#13111c] dark:bg-accent/[0.08] border border-accent/20 dark:border-accent/30 shadow-sm backdrop-blur-sm transition-colors">
         {/* 卡片顶部标题栏 */}
-        <div className="flex gap-2 h-8 items-center mb-1">
+        <div className="flex gap-2 h-8 items-center mb-1.5">
           <div className="flex items-center gap-1.5 h-auto">
             <Sparkles className="size-4.5 text-accent shrink-0" />
             <span className="text-sm font-bold text-accent tracking-wide">
@@ -117,8 +118,8 @@ export default function AISummary({ articleId }) {
             </span>
           </div>
           {state.model && (
-            <span className="text-[11px] font-mono text-muted bg-default/40 px-2.5 py-0.5 rounded-full flex items-center gap-1 ml-1.5 border border-foreground/10">
-              <Bot className="size-3.5 text-muted/80" />
+            <span className="text-[11px] font-mono text-accent dark:text-accent/90 bg-accent/10 dark:bg-accent/20 px-2.5 py-0.5 rounded-full flex items-center gap-1 ml-1.5 border border-accent/20">
+              <Bot className="size-3.5 text-accent/80" />
               {state.model}
             </span>
           )}
@@ -132,7 +133,7 @@ export default function AISummary({ articleId }) {
 
         {/* 生成等待中 */}
         {isWaiting && (
-          <div className="flex items-center gap-2 text-sm text-muted py-3">
+          <div className="flex items-center gap-2 text-sm text-accent/80 py-3">
             <Spinner size="sm" color="current" />
             <span>{t("articleView.aiSummaryGenerating") || "正在生成总结..."}</span>
           </div>
@@ -143,13 +144,13 @@ export default function AISummary({ articleId }) {
 
         {/* 总结正文 Markdown 渲染 */}
         {displayedText && (
-          <div className="ai-summary-body pt-2 text-sm text-foreground">
+          <div className="ai-summary-body pt-1 text-sm text-foreground">
             {parsedHtml ? (
-              <div className="prose dark:prose-invert prose-sm max-w-none text-foreground leading-relaxed prose-headings:text-foreground prose-headings:font-bold prose-headings:text-sm prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-p:text-foreground/90 prose-p:leading-relaxed prose-ul:my-2 prose-ul:pl-4 prose-li:my-1 prose-li:text-foreground/90 prose-strong:text-foreground prose-strong:font-bold">
+              <div className="prose dark:prose-invert prose-sm max-w-none text-foreground/90 dark:text-foreground leading-relaxed prose-headings:text-foreground prose-headings:font-bold prose-headings:text-sm prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-p:text-foreground/90 dark:prose-p:text-foreground/95 prose-p:leading-relaxed prose-ul:my-2 prose-ul:pl-4 prose-li:my-1 prose-li:text-foreground/90 dark:prose-li:text-foreground/95 prose-strong:text-foreground prose-strong:font-bold">
                 {parse(parsedHtml)}
               </div>
             ) : (
-              <div className="whitespace-pre-line leading-relaxed text-foreground/90">
+              <div className="whitespace-pre-line leading-relaxed text-foreground/90 dark:text-foreground/95">
                 {displayedText}
               </div>
             )}
