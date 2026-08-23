@@ -150,6 +150,9 @@ export default {
     aiSummarize: "AI Özeti",
     aiSummary: "AI Özeti",
     aiSummaryGenerating: "Özet oluşturuluyor...",
+    toc: "İçindekiler",
+    sections: "bölüm",
+    clickToJump: "Gitmek için tıkla",
   },
   player: {
     "Current time": "Şimdiki zaman",

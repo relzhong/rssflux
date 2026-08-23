@@ -152,6 +152,9 @@ export default {
     aiSummarize: "Résumé IA",
     aiSummary: "Résumé IA",
     aiSummaryGenerating: "Génération du résumé...",
+    toc: "Sommaire",
+    sections: "sections",
+    clickToJump: "Cliquer pour accéder",
   },
   player: {
     "Current time": "Temps actuel",

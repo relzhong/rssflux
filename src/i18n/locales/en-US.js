@@ -150,6 +150,9 @@ export default {
     aiSummarize: "AI Summary",
     aiSummary: "AI Summary",
     aiSummaryGenerating: "Generating summary...",
+    toc: "Outline",
+    sections: "sections",
+    clickToJump: "Click to jump",
   },
   player: {
     "Current time": "Current time",

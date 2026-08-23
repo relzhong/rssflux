@@ -149,6 +149,9 @@ export default {
     aiSummarize: "AI 总结",
     aiSummary: "AI 总结",
     aiSummaryGenerating: "正在生成总结...",
+    toc: "目录大纲",
+    sections: "个章节",
+    clickToJump: "点击跳转",
   },
   player: {
     "Current time": "当前时间",
