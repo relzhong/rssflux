@@ -47,7 +47,7 @@ export default function ActionButtons() {
   const fetchLoading = useStore(loadingOriginContent);
   const [saveLoading, setSaveLoading] = useState(false);
   const $hasIntegrations = useStore(hasIntegrations);
-  const { aiApiKey, floatingSidebar } = useStore(settingsState);
+  const { floatingSidebar } = useStore(settingsState);
   const $aiSummaries = useStore(aiSummaries);
   const currentSummaryState = $aiSummaries[$activeArticle?.id];
 
@@ -269,7 +269,6 @@ export default function ActionButtons() {
               </Tooltip.Content>
             </Tooltip>
           )}
-          {aiApiKey && (
             <Tooltip delay={0}>
               <Button
                 onPress={handleAISummarize}
@@ -291,7 +290,6 @@ export default function ActionButtons() {
                 {t("articleView.aiSummarize")}
               </Tooltip.Content>
             </Tooltip>
-          )}
           <Tooltip delay={0}>
             <Button
               onPress={() => handleToggleContent($activeArticle)}
