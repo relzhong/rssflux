@@ -3,8 +3,7 @@ FROM node:24-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
-
+RUN npm ci --legacy-peer-deps
 COPY . .
 RUN npm run build
 
@@ -16,8 +15,7 @@ ENV PORT=3000
 
 # Install production dependencies only
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
-
+RUN npm ci --omit=dev --legacy-peer-deps && npm cache clean --force
 # Copy built frontend assets, compiled server, and migration files
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/dist-server ./dist-server
