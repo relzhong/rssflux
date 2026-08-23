@@ -4,8 +4,9 @@ import {
   aiSummaries,
   clearSummary,
   fetchSummaryIfAvailable,
+  requestSummaryGeneration,
 } from "@/stores/aiStore.js";
-import { CloseButton, Spinner } from "@heroui/react";
+import { Button, CloseButton, Spinner } from "@heroui/react";
 import { Sparkles, Bot } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import BorderBeam from "border-beam";
@@ -62,7 +63,22 @@ export default function AISummary({ articleId }) {
     return () => clearInterval(timer);
   }, [articleId]);
 
-  if (!state) return null;
+  // 未生成且未在加载时，显示文章内快捷触发按钮
+  if (!state || (!state.summary && !state.loading && !state.error)) {
+    return (
+      <div className="flex items-center my-3">
+        <Button
+          size="sm"
+          variant="tertiary"
+          onPress={() => requestSummaryGeneration(articleId)}
+          className="gap-1.5 text-xs text-muted hover:text-accent font-medium rounded-xl px-3 py-1.5 border border-dashed border-foreground/15 hover:border-accent/40 bg-default/20 hover:bg-accent/5 transition-colors cursor-pointer"
+        >
+          <Sparkles className="size-3.5 text-accent" />
+          <span>{t("articleView.aiSummarize") || "Generate AI TL;DR"}</span>
+        </Button>
+      </div>
+    );
+  }
 
   const isTyping =
     state.loading || displayedText.length < (state.summary?.length ?? 0);
