@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useStore } from "@nanostores/react";
 import {
   aiSummaries,
@@ -11,10 +11,17 @@ import { Sparkles, Bot } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import BorderBeam from "border-beam";
 import { currentThemeMode } from "@/stores/themeStore.js";
+import { marked } from "marked";
+import parse from "html-react-parser";
 
 const TICK_MS = 16; // ~60fps
 const CHARS_STREAMING = 5; // 流式输出中每帧显示字符数
 const CHARS_CATCHUP = 24; // 输出结束后快速追赶
+
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+});
 
 export default function AISummary({ articleId }) {
   const { t } = useTranslation();
@@ -63,6 +70,16 @@ export default function AISummary({ articleId }) {
     return () => clearInterval(timer);
   }, [articleId]);
 
+  // 将当前文本解析为渲染友好的 Markdown HTML
+  const parsedHtml = useMemo(() => {
+    if (!displayedText) return null;
+    try {
+      return marked.parse(displayedText);
+    } catch {
+      return null;
+    }
+  }, [displayedText]);
+
   // 未生成且未在加载时，显示文章内快捷触发按钮
   if (!state || (!state.summary && !state.loading && !state.error)) {
     return (
@@ -90,17 +107,17 @@ export default function AISummary({ articleId }) {
       size="line"
       theme={$currentThemeMode}
     >
-      <div className="ai-summary p-4 bg-background rounded-2xl mb-4">
-        <div className="flex gap-2 h-10 items-center">
+      <div className="ai-summary p-4.5 bg-background rounded-2xl mb-4 border border-foreground/5 shadow-sm">
+        <div className="flex gap-2 h-9 items-center">
           <div className="flex items-center gap-1.5 h-auto">
             <Sparkles className="size-4 text-accent shrink-0" />
-            <span className="text-sm font-medium text-accent">
+            <span className="text-sm font-semibold text-accent">
               {t("articleView.aiSummary") || "AI Summary"}
             </span>
           </div>
           {state.model && (
-            <span className="text-[10px] text-muted bg-default/40 px-2 py-0.5 rounded-full flex items-center gap-1 ml-1">
-              <Bot className="size-3" />
+            <span className="text-[11px] font-mono text-muted bg-default/40 px-2.5 py-0.5 rounded-full flex items-center gap-1 ml-1.5 border border-foreground/5">
+              <Bot className="size-3.5 text-muted/70" />
               {state.model}
             </span>
           )}
@@ -122,8 +139,16 @@ export default function AISummary({ articleId }) {
         {state.error && <p className="text-sm text-danger">{state.error}</p>}
 
         {displayedText && (
-          <div className="text-sm text-muted leading-relaxed whitespace-pre-line pt-1">
-            {displayedText}
+          <div className="ai-summary-body pt-2 text-sm text-foreground/90">
+            {parsedHtml ? (
+              <div className="prose dark:prose-invert prose-sm max-w-none leading-relaxed prose-headings:text-foreground prose-headings:font-semibold prose-headings:text-sm prose-headings:mt-3 prose-headings:mb-1.5 prose-p:my-1.5 prose-ul:my-1 prose-ul:pl-4 prose-li:my-0.5 prose-strong:text-foreground prose-strong:font-semibold">
+                {parse(parsedHtml)}
+              </div>
+            ) : (
+              <div className="whitespace-pre-line leading-relaxed">
+                {displayedText}
+              </div>
+            )}
             {isTyping && (
               <span className="inline-block w-0.5 h-4 bg-accent ml-0.5 animate-pulse align-middle" />
             )}
