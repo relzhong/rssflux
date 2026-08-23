@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review To Planning"
+  short_description: "Turn architecture review findings into planning docs"
+  default_prompt: "Use $review-to-planning to convert docs/review/architecture-review.html#finding into a docs/planning/ refactor plan."

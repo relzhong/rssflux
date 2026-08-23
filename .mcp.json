@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "heroui-react": {
+      "command": "npx",
+      "args": ["-y", "@heroui/react-mcp@latest"],
+      "lifecycle": "eager"
+    }
+  }
+}

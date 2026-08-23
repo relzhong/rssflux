@@ -1,0 +1,61 @@
+{
+  "lockfileVersion": 1,
+  "sources": {
+    "mattpocock/skills:skills/engineering": {
+      "requestedRef": "main",
+      "resolvedRef": "b8be62ffacb0118fa3eaa29a0923c87c8c11985c",
+      "resolvedAt": "2026-05-24T13:50:26.320Z",
+      "skills": {
+        "diagnose": {
+          "integrity": "sha256-9e8a25a0dfc2da80a0867158a65a15368740bbe0ffec4126c7552b94b53d570f"
+        },
+        "grill-with-docs": {
+          "integrity": "sha256-239939bf31313e6de6ca84e78cb77e1dc0011157a1dcf62594e495b0ada34b12"
+        },
+        "improve-codebase-architecture": {
+          "integrity": "sha256-326e2a53c622d19509f2b0c32111b4d8cb208eb3df1bd1dd8671308708bc245b"
+        },
+        "prototype": {
+          "integrity": "sha256-76829cdb04f2cf3924e58f90d298a2e39029a3031f76f68131dbe5ae9a9a3f83"
+        },
+        "setup-matt-pocock-skills": {
+          "integrity": "sha256-9359180a18156cfc9f2ed97023afddb9d07d4b533c42199380694ffafd125052"
+        },
+        "tdd": {
+          "integrity": "sha256-9a25970955327737d80d256e7bc2a39ceec96191b01d027eb21124e640c96e1e"
+        },
+        "to-issues": {
+          "integrity": "sha256-3fc7c307251c4f08a50326236e7e70faffe1dadb99ee35a3d854b1b7a0b79418"
+        },
+        "to-prd": {
+          "integrity": "sha256-a9a42e82d98fc26a289ee525b29af933b81a5b937f58284bda69128c88e49b3d"
+        },
+        "triage": {
+          "integrity": "sha256-4e735cfcce7f614cef6849ba5cec4355cb6d42e507601e63cfbd707dd0be9c1c"
+        },
+        "zoom-out": {
+          "integrity": "sha256-34f4bab271b9b9bbad01e08413d5a096ec84d1ee983d747de9219f77afc5e897"
+        }
+      }
+    },
+    "mattpocock/skills:skills/productivity": {
+      "requestedRef": "main",
+      "resolvedRef": "b8be62ffacb0118fa3eaa29a0923c87c8c11985c",
+      "resolvedAt": "2026-05-24T13:50:30.162Z",
+      "skills": {
+        "caveman": {
+          "integrity": "sha256-7e2fa5f052ed8572bbe892d4c1baeea80ba8659d0b72e6432bfd7e8fb98abc0c"
+        },
+        "grill-me": {
+          "integrity": "sha256-0fe30e2291a6f990a5414f85205535bc06519622bf604980511d7c11dad327e0"
+        },
+        "handoff": {
+          "integrity": "sha256-478ba7f43732eb37517839d1360c630bc645a1eac6f39737cb3fb38d22a1194b"
+        },
+        "write-a-skill": {
+          "integrity": "sha256-03840258378476cbefa13fd3f7bf70db93ec1c3cdd7d0dc4edb9431e71a2a24d"
+        }
+      }
+    }
+  }
+}

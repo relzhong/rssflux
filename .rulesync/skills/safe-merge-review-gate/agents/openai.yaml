@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Safe Merge Review Gate'
+  short_description: 'Resolve merges with a small safety pass for risky files'
+  default_prompt: 'Use $safe-merge-review-gate to merge origin/main into this worktree, resolve clear conflicts, and call out anything risky before I commit.'

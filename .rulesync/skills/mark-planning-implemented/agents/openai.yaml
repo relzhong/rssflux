@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mark Planning Implemented"
+  short_description: "Close planning docs with implementation links"
+  default_prompt: "Use $mark-planning-implemented to add an implemented status note to docs/planning/my-feature.md."
