@@ -10,6 +10,7 @@ export function loadConfig(env = process.env) {
         "SESSION_SECRET",
         "MINIFLUX_URL",
         "MINIFLUX_API_TOKEN",
+        ...(nodeEnv === "production" ? ["INTERNAL_API_KEY"] : []),
     ];
     const missing = [];
     for (const key of requiredKeys) {
@@ -34,6 +35,8 @@ export function loadConfig(env = process.env) {
         aiModel: env.AI_MODEL || "gpt-4o-mini",
         aiPrompt: env.AI_PROMPT || defaultAiPrompt,
         sessionTtlDays: parseInt(env.SESSION_TTL_DAYS || "30", 10),
+        internalApiKey: env.INTERNAL_API_KEY || "default-dev-internal-api-key",
+        summaryAiMinChars: parseInt(env.SUMMARY_AI_MIN_CHARS || "500", 10),
         nodeEnv,
         isProduction: nodeEnv === "production",
         trustProxy: env.TRUST_PROXY !== "false",

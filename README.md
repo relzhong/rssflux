@@ -154,9 +154,55 @@ docker run -d \
 | `AI_API_KEY` | No | `""` | API key for LLM summarization |
 | `AI_MODEL` | No | `gpt-4o-mini` | AI model identifier (e.g. `gpt-4o-mini`, `deepseek-chat`) |
 | `AI_PROMPT` | No | Built-in | System prompt for article summarization |
+| `INTERNAL_API_KEY` | **Yes (Prod)** | — | Bearer token secret for internal batch summary API |
+| `SUMMARY_AI_MIN_CHARS` | No | `500` | Minimum article characters to trigger AI summary (shorter uses extractive) |
 | `SESSION_TTL_DAYS` | No | `30` | Session expiration in days |
 | `TRUST_PROXY` | No | `true` | Enable proxy headers trust behind reverse proxies (Traefik/Nginx/Caddy) |
 
+---
+
+## 🤖 Internal Batch Summary API (for Windmill / Automation)
+
+External orchestrators (such as [Windmill](https://www.windmill.dev/)) can batch-generate or preheat AI summaries by calling the `/internal` endpoints using `Bearer` token authentication.
+
+### 1. Health Check
+```bash
+curl -H "Authorization: Bearer ${INTERNAL_API_KEY}" \
+  http://localhost:3000/internal/health
+# Response: {"ok":true}
+```
+
+### 2. Batch Summary Generation
+```bash
+curl -X POST http://localhost:3000/internal/summaries/generate \
+  -H "Authorization: Bearer ${INTERNAL_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "entryIds": [101, 102, 103],
+    "force": false
+  }'
+```
+
+**Response:**
+```json
+{
+  "results": [
+    { "entryId": 101, "status": "ready", "cached": true },
+    { "entryId": 102, "status": "ready", "cached": false },
+    { "entryId": 103, "status": "failed", "error": "Article 103 not found" }
+  ]
+}
+```
+
+---
+
+## 🔗 Stable Article Deep Links
+
+Nextflux supports direct entry deep linking (e.g. for Notion integration, notifications, or bookmarks):
+- `https://your-domain.com/entry/:entryId` (or `https://your-domain.com/article/:entryId`)
+
+- **Unauthenticated**: Redirects cleanly to `/login`, preserving original navigation state.
+- **Authenticated**: Directly opens and displays the corresponding Miniflux entry.
 ---
 
 ## 🛠️ Local Development

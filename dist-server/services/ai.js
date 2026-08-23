@@ -1,3 +1,4 @@
+export const PROMPT_VERSION = "article-summary-v1";
 export function extractPlainText(html) {
     if (!html)
         return "";
@@ -20,22 +21,96 @@ export function extractPlainText(html) {
 export function stripThinkingTags(text) {
     return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 }
+export function parseAndValidateAIResponse(rawContent, fallbackModel) {
+    const clean = stripThinkingTags(rawContent);
+    // Try extracting JSON block if wrapped in markdown code fence
+    let jsonStr = clean;
+    const jsonMatch = clean.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (jsonMatch) {
+        jsonStr = jsonMatch[1];
+    }
+    else {
+        // If there is leading/trailing text, extract substring between first { and last }
+        const firstBrace = clean.indexOf("{");
+        const lastBrace = clean.lastIndexOf("}");
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+            jsonStr = clean.slice(firstBrace, lastBrace + 1);
+        }
+    }
+    let parsed;
+    try {
+        parsed = JSON.parse(jsonStr);
+    }
+    catch {
+        // If JSON parsing fails, fallback to simple heuristic structuring
+        const lines = clean
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean);
+        const tldr = lines.length > 0 ? lines[0].slice(0, 300) : "Summary unavailable";
+        const summary = clean;
+        return {
+            tldr,
+            summary,
+            topics: [],
+            importance: 3,
+        };
+    }
+    // Validate fields
+    let tldr = typeof parsed.tldr === "string" ? parsed.tldr.trim() : "";
+    if (!tldr && typeof parsed.summary === "string") {
+        tldr = parsed.summary.split("\n")[0]?.trim() || "";
+    }
+    if (!tldr) {
+        tldr = "Summary unavailable";
+    }
+    const summary = typeof parsed.summary === "string" ? parsed.summary.trim() : "";
+    let topics = [];
+    if (Array.isArray(parsed.topics)) {
+        topics = parsed.topics
+            .filter((t) => typeof t === "string")
+            .map((t) => t.trim())
+            .filter((t) => t.length > 0);
+    }
+    let importance = 3;
+    if (typeof parsed.importance === "number" && Number.isInteger(parsed.importance)) {
+        importance = Math.max(1, Math.min(5, parsed.importance));
+    }
+    else if (typeof parsed.importance === "string") {
+        const parsedInt = parseInt(parsed.importance, 10);
+        if (!isNaN(parsedInt)) {
+            importance = Math.max(1, Math.min(5, parsedInt));
+        }
+    }
+    return {
+        tldr,
+        summary,
+        topics,
+        importance,
+    };
+}
 export class AIService {
     config;
     constructor(config) {
         this.config = config;
     }
-    async generateSummary(article) {
+    async generateSummary(article, normalizedPlainText) {
         if (!this.config.aiApiKey) {
             throw new Error("AI API Key is not configured on the server");
         }
-        const plainText = extractPlainText(article.content);
         const title = article.title || "";
-        const truncatedContent = plainText.slice(0, 8000);
+        const truncatedContent = normalizedPlainText.slice(0, 8000);
         const endpoint = `${this.config.aiBaseUrl}/chat/completions`;
-        const systemPrompt = this.config.aiPrompt ||
-            "You are a helpful reading assistant. Summarize the provided article concisely into: 1) A 1-2 sentence TL;DR. 2) Key bullet points of main arguments or facts. Keep the language matching the article's language.";
-        const userPrompt = `Please summarize this article:\n\nTitle: ${title}\n\n${truncatedContent}`;
+        const systemPrompt = `You are an expert reading assistant and research analyst.
+Analyze the provided article and return a strictly valid JSON object matching this schema:
+{
+  "tldr": "1-3 sentences concise overview of the core conclusion or key event (in the same language as the article)",
+  "summary": "Detailed structured breakdown in Markdown bullet points highlighting main arguments, key data, and context (in the same language as the article)",
+  "topics": ["topic1", "topic2"],
+  "importance": 1-5 (Integer scale where 1: trivial/low value, 2: mildly useful, 3: useful, 4: important/worth reading, 5: exceptional/must read)
+}
+Return only the raw JSON object, without extra conversational commentary.`;
+        const userPrompt = `Title: ${title}\n\n${truncatedContent}`;
         const response = await fetch(endpoint, {
             method: "POST",
             headers: {
@@ -44,7 +119,7 @@ export class AIService {
             },
             body: JSON.stringify({
                 model: this.config.aiModel,
-                stream: false,
+                response_format: { type: "json_object" },
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userPrompt },
@@ -66,17 +141,14 @@ export class AIService {
         }
         const data = (await response.json());
         const rawContent = data.choices?.[0]?.message?.content || "";
-        const cleanContent = stripThinkingTags(rawContent);
-        // Derive a concise TL;DR from the first paragraph or line
-        const lines = cleanContent
-            .split("\n")
-            .map((l) => l.trim())
-            .filter(Boolean);
-        const tldr = lines.length > 0 ? lines[0] : "";
+        const validated = parseAndValidateAIResponse(rawContent, this.config.aiModel);
         return {
-            tldr,
-            summary: cleanContent,
+            tldr: validated.tldr,
+            summary: validated.summary,
+            topics: validated.topics,
+            importance: validated.importance,
             model: data.model || this.config.aiModel,
+            promptVersion: PROMPT_VERSION,
         };
     }
 }

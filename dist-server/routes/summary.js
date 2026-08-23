@@ -7,18 +7,26 @@ export const summaryRoutes = async (fastify, opts) => {
             return reply.status(400).send({ error: "Invalid entryId" });
         }
         try {
-            const summary = await summaryService.getSummary(entryId);
-            if (!summary) {
+            const summary = await summaryService.get(entryId);
+            if (!summary || summary.status !== "ready") {
                 return reply.status(404).send({ error: "Summary not found" });
             }
             return reply.send({
                 entryId: summary.entry_id,
                 title: summary.title,
                 url: summary.url,
-                contentHash: summary.content_hash,
+                feedId: summary.feed_id,
+                feedTitle: summary.feed_title,
+                publishedAt: summary.published_at,
+                textLength: summary.text_length,
                 tldr: summary.tldr,
                 summary: summary.summary,
+                topics: summary.topics || [],
+                importance: summary.importance,
+                summaryKind: summary.summary_kind,
                 model: summary.model,
+                promptVersion: summary.prompt_version,
+                status: summary.status,
                 generatedAt: summary.generated_at,
                 updatedAt: summary.updated_at,
             });
@@ -37,16 +45,27 @@ export const summaryRoutes = async (fastify, opts) => {
         if (isNaN(entryId)) {
             return reply.status(400).send({ error: "Invalid entryId" });
         }
+        const force = Boolean(req.body?.force);
         try {
-            const summary = await summaryService.generateSummary(entryId);
+            const result = await summaryService.generate(entryId, { force });
+            const summary = result.record;
             return reply.send({
                 entryId: summary.entry_id,
                 title: summary.title,
                 url: summary.url,
-                contentHash: summary.content_hash,
+                feedId: summary.feed_id,
+                feedTitle: summary.feed_title,
+                publishedAt: summary.published_at,
+                textLength: summary.text_length,
                 tldr: summary.tldr,
                 summary: summary.summary,
+                topics: summary.topics || [],
+                importance: summary.importance,
+                summaryKind: summary.summary_kind,
                 model: summary.model,
+                promptVersion: summary.prompt_version,
+                status: summary.status,
+                cached: result.cached,
                 generatedAt: summary.generated_at,
                 updatedAt: summary.updated_at,
             });

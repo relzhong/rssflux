@@ -14,10 +14,12 @@ import { AIService } from "./services/ai.js";
 import { SummaryService } from "./services/summary.js";
 
 import { authPlugin } from "./plugins/auth.js";
+import { internalAuthPlugin } from "./plugins/internalAuth.js";
 import { authRoutes } from "./routes/auth.js";
 import { healthRoutes } from "./routes/health.js";
 import { minifluxRoutes } from "./routes/miniflux.js";
 import { summaryRoutes } from "./routes/summary.js";
+import { internalRoutes } from "./routes/internal.js";
 
 export interface BuildAppOptions {
   config: AppConfig;
@@ -40,7 +42,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const minifluxService =
     options.customMinifluxService || new MinifluxService(config);
   const aiService = options.customAiService || new AIService(config);
-  const summaryService = new SummaryService(db, minifluxService, aiService);
+  const summaryService = new SummaryService(db, minifluxService, aiService, config);
 
   // 1. Cookies
   await app.register(fastifyCookie, {
@@ -54,9 +56,13 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     timeWindow: "1 minute",
   });
 
-  // 3. Auth Plugin & Hooks
+  // 3. Auth Plugins & Hooks
   await app.register(authPlugin, {
     authService,
+  });
+
+  await app.register(internalAuthPlugin, {
+    config,
   });
 
   // 4. API Routes
@@ -82,7 +88,13 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     summaryService,
   });
 
-  // 5. Static Files & SPA Fallback
+  // 5. Internal API Routes
+  await app.register(internalRoutes, {
+    prefix: "/internal",
+    summaryService,
+  });
+
+  // 6. Static Files & SPA Fallback
   const distPath = path.resolve(process.cwd(), "dist");
   const hasDist = fs.existsSync(distPath);
 
@@ -94,15 +106,15 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     });
   }
 
-  // SPA Fallback and API 404 Handler
+  // SPA Fallback and API/Internal 404 Handler
   app.setNotFoundHandler((req, reply) => {
     const url = req.url.split("?")[0];
 
-    // API routes NEVER fallback to index.html
-    if (url.startsWith("/api/")) {
+    // API and Internal routes NEVER fallback to index.html
+    if (url.startsWith("/api/") || url.startsWith("/internal")) {
       return reply.status(404).send({
         error: "Not Found",
-        message: `API endpoint ${url} does not exist`,
+        message: `Endpoint ${url} does not exist`,
       });
     }
 

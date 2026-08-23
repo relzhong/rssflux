@@ -4,6 +4,11 @@ export interface MinifluxArticle {
   id: number;
   user_id: number;
   feed_id: number;
+  feed?: {
+    id: number;
+    title: string;
+  };
+  feed_title?: string;
   title: string;
   url: string;
   comments_url: string;

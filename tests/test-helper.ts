@@ -3,7 +3,7 @@ import type { DatabaseService } from "../server/db/index.js";
 import type { AppConfig } from "../server/config.js";
 import { buildApp } from "../server/app.js";
 import { MinifluxService, type MinifluxArticle } from "../server/services/miniflux.js";
-import { AIService, type GeneratedSummaryResult } from "../server/services/ai.js";
+import { AIService, type GeneratedSummaryResult, PROMPT_VERSION } from "../server/services/ai.js";
 
 export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   return {
@@ -19,6 +19,8 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     aiModel: "gpt-4o-mini",
     aiPrompt: "Summarize this article",
     sessionTtlDays: 30,
+    internalApiKey: "test-internal-secret-key-32-chars",
+    summaryAiMinChars: 500,
     nodeEnv: "test",
     isProduction: false,
     trustProxy: true,
@@ -52,6 +54,7 @@ export function createTestDatabase(): DatabaseService {
     returns: db.public.getType("integer"),
     implementation: () => 0,
   });
+
   const adapter = db.adapters.createPg();
   const pool = new adapter.Pool();
 
@@ -81,12 +84,22 @@ export function createTestDatabase(): DatabaseService {
 
       CREATE TABLE IF NOT EXISTS article_summary (
         entry_id BIGINT PRIMARY KEY,
-        title TEXT,
+        title TEXT NOT NULL,
         url TEXT,
-        content_hash TEXT,
-        tldr TEXT,
+        feed_id BIGINT,
+        feed_title TEXT,
+        published_at TIMESTAMPTZ,
+        content_hash TEXT NOT NULL,
+        text_length INTEGER NOT NULL DEFAULT 0,
+        tldr TEXT NOT NULL,
         summary TEXT,
+        topics TEXT[] NOT NULL DEFAULT '{}',
+        importance SMALLINT,
+        summary_kind TEXT NOT NULL DEFAULT 'ai',
         model TEXT,
+        prompt_version TEXT,
+        status TEXT NOT NULL DEFAULT 'ready',
+        last_error TEXT,
         generated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
@@ -139,16 +152,29 @@ export class MockMinifluxService extends MinifluxService {
 export class MockAIService extends AIService {
   public generateCallCount = 0;
   public mockSummaryResponse?: GeneratedSummaryResult;
+  public shouldFail = false;
 
-  async generateSummary(article: MinifluxArticle): Promise<GeneratedSummaryResult> {
+  async generateSummary(
+    article: MinifluxArticle,
+    normalizedPlainText: string
+  ): Promise<GeneratedSummaryResult> {
     this.generateCallCount++;
+
+    if (this.shouldFail) {
+      throw new Error("AI completion network timeout");
+    }
+
     if (this.mockSummaryResponse) {
       return this.mockSummaryResponse;
     }
+
     return {
-      tldr: `TLDR of ${article.title}`,
-      summary: `Detailed summary of ${article.title}: ${article.content.slice(0, 50)}...`,
+      tldr: `TLDR of ${article.title}: concise summary of core conclusion.`,
+      summary: `- Point 1: ${normalizedPlainText.slice(0, 40)}\n- Point 2: Key facts and metrics`,
+      topics: ["Technology", "Cloud"],
+      importance: 4,
       model: "mock-gpt-4o",
+      promptVersion: PROMPT_VERSION,
     };
   }
 }
