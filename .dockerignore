@@ -1,9 +1,12 @@
 node_modules
 dist
+dist-server
 .git
 .gitignore
 .env
+.env.*
 *.log
 images
 Dockerfile
 compose.yml
+tests
