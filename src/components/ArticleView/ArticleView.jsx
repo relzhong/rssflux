@@ -28,6 +28,7 @@ import Attachments from "@/components/ArticleView/components/Attachments.jsx";
 import AISummary from "@/components/ArticleView/components/AISummary.jsx";
 import Iframe from "@/components/ArticleView/components/Iframe.jsx";
 import { useIsMobile } from "@/hooks/use-mobile";
+import ArticleTOC from "@/components/ArticleView/components/ArticleTOC.jsx";
 
 const ArticleView = () => {
   const { t } = useTranslation();
@@ -49,6 +50,7 @@ const ArticleView = () => {
   const { lightTheme } = useStore(themeState);
   const $currentThemeMode = useStore(currentThemeMode);
   const scrollAreaRef = useRef(null);
+  const articleContentRef = useRef(null);
   const { isMedium } = useIsMobile();
   // 判断当前是否实际使用了stone主题
   const isStoneTheme = () => {
@@ -186,6 +188,11 @@ const ArticleView = () => {
               )}
             >
               <ActionButtons />
+              <ArticleTOC
+                scrollContainerRef={scrollAreaRef}
+                contentContainerRef={articleContentRef}
+                articleId={articleId}
+              />
 
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
@@ -271,6 +278,7 @@ const ArticleView = () => {
                     speed={() => 300}
                   >
                     <div
+                      ref={articleContentRef}
                       className={cn(
                         "article-content prose dark:prose-invert max-w-none",
                         "prose-pre:rounded-lg prose-pre:shadow-small",
