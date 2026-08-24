@@ -13,7 +13,12 @@ function getElementOffsetTop(el, container) {
   return top;
 }
 
-export default function ArticleTOC({ scrollContainerRef, contentContainerRef, articleId }) {
+export default function ArticleTOC({
+  scrollContainerRef,
+  contentContainerRef,
+  articleId,
+  content,
+}) {
   const { t } = useTranslation();
   const [headings, setHeadings] = useState([]);
   const [activeId, setActiveId] = useState("");
@@ -26,11 +31,19 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
 
   // 1. 扫描正文并提取所有标题
   const extractHeadings = useCallback(() => {
-    if (!contentContainerRef?.current) return;
-    const container = contentContainerRef.current;
+    // 优先从 contentContainerRef 提取，如果没有则在 document 内扫描 article-content
+    const container =
+      contentContainerRef?.current ||
+      document.querySelector(".article-content") ||
+      document.querySelector(".article-view-content");
+
+    if (!container) {
+      return;
+    }
+
     const elements = Array.from(container.querySelectorAll("h1, h2, h3, h4"));
 
-    if (elements.length < 2) {
+    if (elements.length === 0) {
       setHeadings([]);
       return;
     }
@@ -54,16 +67,45 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
     setHeadings(items);
   }, [contentContainerRef]);
 
+  // 2. 深度监听文章变化与 DOM 渲染完成
   useEffect(() => {
-    const timer = setTimeout(() => {
-      extractHeadings();
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [articleId, extractHeadings]);
+    extractHeadings();
 
-  // 2. 监听滚动并准确计算各章节进度与回滚
+    // 延时重试，防止异步渲染和 Framer Motion 动画导致的延迟挂载
+    const t1 = setTimeout(extractHeadings, 100);
+    const t2 = setTimeout(extractHeadings, 300);
+    const t3 = setTimeout(extractHeadings, 600);
+
+    // MutationObserver 监听正文内容插入
+    let observer = null;
+    const targetNode =
+      contentContainerRef?.current ||
+      document.querySelector(".article-content") ||
+      document.querySelector(".article-view-content");
+
+    if (targetNode) {
+      observer = new MutationObserver(() => {
+        extractHeadings();
+      });
+      observer.observe(targetNode, {
+        childList: true,
+        subtree: true,
+      });
+    }
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      observer?.disconnect();
+    };
+  }, [articleId, content, extractHeadings, contentContainerRef]);
+
+  // 3. 监听滚动并准确计算各章节进度与回滚
   const handleScroll = useCallback(() => {
-    const scrollEl = scrollContainerRef?.current;
+    const scrollEl =
+      scrollContainerRef?.current ||
+      document.querySelector(".article-scroll-area");
     if (!scrollEl || headings.length === 0) return;
 
     const scrollTop = scrollEl.scrollTop;
@@ -86,7 +128,7 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
       const id = headings[i].id;
 
       if (scrollTop <= start) {
-        // 未滚动到该章节：进度为 0%（往回滚动时立即回滚为空）
+        // 未滚动到该章节：进度为 0%
         newSectionProgress[id] = 0;
       } else if (scrollTop >= end) {
         // 已读过该章节：进度为 100%
@@ -110,7 +152,9 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
   }, [scrollContainerRef, headings]);
 
   useEffect(() => {
-    const scrollEl = scrollContainerRef?.current;
+    const scrollEl =
+      scrollContainerRef?.current ||
+      document.querySelector(".article-scroll-area");
     if (!scrollEl) return;
 
     scrollEl.addEventListener("scroll", handleScroll, { passive: true });
@@ -119,9 +163,9 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
     return () => {
       scrollEl.removeEventListener("scroll", handleScroll);
     };
-  }, [scrollContainerRef, handleScroll]);
+  }, [scrollContainerRef, handleScroll, headings]);
 
-  // 3. 防抖 Hover 处理
+  // 4. 防抖 Hover 处理
   const handleMouseEnter = () => {
     if (hoverTimerRef.current) {
       clearTimeout(hoverTimerRef.current);
@@ -137,10 +181,12 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
     }, 280);
   };
 
-  // 4. 点击跳转锚点
+  // 5. 点击跳转锚点
   const scrollToHeading = (id) => {
     const el = document.getElementById(id);
-    const scrollEl = scrollContainerRef?.current;
+    const scrollEl =
+      scrollContainerRef?.current ||
+      document.querySelector(".article-scroll-area");
     if (el && scrollEl) {
       const targetScrollTop = getElementOffsetTop(el, scrollEl) - 40;
 
@@ -154,11 +200,11 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
     }
   };
 
-  if (headings.length < 2) {
+  if (headings.length === 0) {
     return null;
   }
 
-  // 骨架条左对齐宽度定义（图 1 风格）
+  // 骨架条左对齐宽度定义
   const getBarWidthClass = (level) => {
     switch (level) {
       case 1:
@@ -184,7 +230,7 @@ export default function ArticleTOC({ scrollContainerRef, contentContainerRef, ar
         "right-7 md:right-9 lg:right-10 top-32"
       )}
     >
-      {/* 1. 右侧极简骨架线（精准支持往回滚动回滚） */}
+      {/* 1. 右侧极简骨架线 */}
       <div
         onClick={() => setIsPinned(!isPinned)}
         className={cn(

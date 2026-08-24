@@ -192,6 +192,7 @@ const ArticleView = () => {
                 scrollContainerRef={scrollAreaRef}
                 contentContainerRef={articleContentRef}
                 articleId={articleId}
+                content={$activeArticle?.content}
               />
 
               <AnimatePresence mode="wait" initial={false}>
