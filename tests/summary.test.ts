@@ -109,6 +109,7 @@ describe("Article Summary Integration (HTTP Seam)", () => {
     });
 
     expect(getRes.statusCode).toBe(200);
+    expect(getRes.headers["cache-control"]).toBe("private, max-age=86400");
     const getData = JSON.parse(getRes.body);
     expect(getData.entryId).toBe(101);
     expect(getData.summary).toBe(genData.summary);
@@ -203,5 +204,27 @@ describe("Article Summary Integration (HTTP Seam)", () => {
     expect(dbRes.rowCount).toBe(1);
     expect(dbRes.rows[0].status).toBe("failed");
     expect(dbRes.rows[0].last_error).toContain("network timeout");
+
+    const initialAiCalls = mockAi.generateCallCount;
+
+    // 2. Retry without force -> failure cooldown is active -> AI is NOT called again!
+    const cooldownRes = await app.inject({
+      method: "POST",
+      url: "/api/summary/104/generate",
+      cookies: { session: sessionCookie },
+    });
+    expect(cooldownRes.statusCode).toBe(500);
+    expect(JSON.parse(cooldownRes.body).message).toContain("cooldown active");
+    expect(mockAi.generateCallCount).toBe(initialAiCalls); // ZERO new LLM calls!
+
+    // 3. Retry with force: true -> bypasses cooldown and calls AI
+    const forceRes = await app.inject({
+      method: "POST",
+      url: "/api/summary/104/generate",
+      cookies: { session: sessionCookie },
+      payload: { force: true },
+    });
+    expect(forceRes.statusCode).toBe(500);
+    expect(mockAi.generateCallCount).toBe(initialAiCalls + 1); // Called again!
   });
 });

@@ -21,6 +21,7 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     sessionTtlDays: 30,
     internalApiKey: "test-internal-secret-key-32-chars",
     summaryAiMinChars: 500,
+    summaryFailureCooldownMinutes: 360,
     nodeEnv: "test",
     isProduction: false,
     trustProxy: true,

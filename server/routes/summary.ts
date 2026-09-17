@@ -27,7 +27,7 @@ export const summaryRoutes: FastifyPluginAsync<SummaryRoutesOptions> = async (
       if (!summary || summary.status !== "ready") {
         return reply.status(404).send({ error: "Summary not found" });
       }
-
+      reply.header("Cache-Control", "private, max-age=86400");
       return reply.send({
         entryId: summary.entry_id,
         title: summary.title,

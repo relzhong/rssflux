@@ -120,6 +120,24 @@ export class SummaryService {
           cached: true,
         };
       }
+
+      // Check failure cooldown: if recently failed with same content_hash, do not spam LLM
+      if (
+        existing &&
+        existing.status === "failed" &&
+        existing.content_hash === contentHash &&
+        this.config.summaryFailureCooldownMinutes > 0
+      ) {
+        const cooldownMs = this.config.summaryFailureCooldownMinutes * 60 * 1000;
+        const elapsed = Date.now() - new Date(existing.updated_at).getTime();
+        if (elapsed < cooldownMs) {
+          throw new Error(
+            existing.last_error
+              ? `Previous generation failed: ${existing.last_error} (cooldown active, retry with force: true)`
+              : `Previous generation failed (cooldown active, retry with force: true)`
+          );
+        }
+      }
     }
 
     // 3. Acquire database transaction with advisory lock to serialize parallel requests
@@ -152,6 +170,25 @@ export class SummaryService {
             record: recheck.rows[0],
             cached: true,
           };
+        }
+
+        if (
+          recheck.rowCount &&
+          recheck.rowCount > 0 &&
+          recheck.rows[0].status === "failed" &&
+          recheck.rows[0].content_hash === contentHash &&
+          this.config.summaryFailureCooldownMinutes > 0
+        ) {
+          const cooldownMs = this.config.summaryFailureCooldownMinutes * 60 * 1000;
+          const elapsed = Date.now() - new Date(recheck.rows[0].updated_at).getTime();
+          if (elapsed < cooldownMs) {
+            await client.query("COMMIT");
+            throw new Error(
+              recheck.rows[0].last_error
+                ? `Previous generation failed: ${recheck.rows[0].last_error} (cooldown active, retry with force: true)`
+                : `Previous generation failed (cooldown active, retry with force: true)`
+            );
+          }
         }
       }
 

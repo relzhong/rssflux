@@ -1,8 +1,39 @@
-import { atom } from "nanostores";
+import { persistentAtom } from "@nanostores/persistent";
+
+const MAX_CACHED_SUMMARIES = 200;
 
 // summary state per article id: { [articleId]: { loading, summary, tldr, model, error } }
-export const aiSummaries = atom({});
-
+export const aiSummaries = persistentAtom(
+  "aiSummaries",
+  {},
+  {
+    encode: (val) => {
+      const clean = {};
+      const keys = Object.keys(val);
+      const sliceKeys = keys.slice(-MAX_CACHED_SUMMARIES);
+      for (const k of sliceKeys) {
+        const item = val[k];
+        if (item && item.summary) {
+          clean[k] = {
+            loading: false,
+            summary: item.summary,
+            tldr: item.tldr,
+            model: item.model,
+            error: null,
+          };
+        }
+      }
+      return JSON.stringify(clean);
+    },
+    decode: (str) => {
+      try {
+        return JSON.parse(str);
+      } catch {
+        return {};
+      }
+    },
+  }
+);
 export const setSummaryLoading = (articleId) => {
   aiSummaries.set({
     ...aiSummaries.get(),

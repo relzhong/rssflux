@@ -17,6 +17,7 @@ export interface AppConfig {
   sessionTtlDays: number;
   internalApiKey: string;
   summaryAiMinChars: number;
+  summaryFailureCooldownMinutes: number;
   nodeEnv: string;
   isProduction: boolean;
   trustProxy: boolean;
@@ -66,6 +67,10 @@ export function loadConfig(env = process.env): AppConfig {
     sessionTtlDays: parseInt(env.SESSION_TTL_DAYS || "30", 10),
     internalApiKey: env.INTERNAL_API_KEY || "default-dev-internal-api-key",
     summaryAiMinChars: parseInt(env.SUMMARY_AI_MIN_CHARS || "500", 10),
+    summaryFailureCooldownMinutes: parseInt(
+      env.SUMMARY_FAILURE_COOLDOWN_MINUTES || "360",
+      10
+    ),
     nodeEnv,
     isProduction: nodeEnv === "production",
     trustProxy: env.TRUST_PROXY !== "false",
