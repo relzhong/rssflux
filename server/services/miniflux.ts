@@ -47,6 +47,26 @@ export class MinifluxService {
     return data;
   }
 
+  async fetchOriginalContent(entryId: number): Promise<string> {
+    const response = await fetch(
+      `${this.config.minifluxUrl}/v1/entries/${entryId}/fetch-content?update_content=false`,
+      {
+        headers: {
+          "X-Auth-Token": this.config.minifluxApiToken,
+          Accept: "application/json",
+        },
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`Miniflux content extraction error ${response.status}`);
+    }
+    const data = (await response.json()) as { content?: unknown };
+    if (typeof data.content !== "string") {
+      throw new Error("Miniflux content extraction returned invalid content");
+    }
+    return data.content;
+  }
+
   async proxyRequest(
     path: string,
     method: string,

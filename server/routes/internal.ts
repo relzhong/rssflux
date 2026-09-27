@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { SummaryService } from "../services/summary.js";
+import { parseContentPolicy } from "../services/contentPolicy.js";
 
 interface InternalRoutesOptions {
   summaryService: SummaryService;
@@ -8,6 +9,7 @@ interface InternalRoutesOptions {
 interface BatchGenerateBody {
   entryIds?: unknown;
   force?: boolean;
+  contentPolicy?: unknown;
 }
 
 export const internalRoutes: FastifyPluginAsync<InternalRoutesOptions> = async (
@@ -25,7 +27,7 @@ export const internalRoutes: FastifyPluginAsync<InternalRoutesOptions> = async (
   fastify.post<{ Body: BatchGenerateBody }>(
     "/summaries/generate",
     async (req, reply) => {
-      const { entryIds, force } = req.body || {};
+      const { entryIds, force, contentPolicy } = req.body || {};
 
       // 1. Validation
       if (!Array.isArray(entryIds)) {
@@ -60,9 +62,20 @@ export const internalRoutes: FastifyPluginAsync<InternalRoutesOptions> = async (
         });
       }
 
+      let policy;
+      try {
+        if (contentPolicy !== undefined) policy = parseContentPolicy(contentPolicy);
+      } catch (err) {
+        return reply.status(400).send({
+          error: "Bad Request",
+          message: (err as Error).message,
+        });
+      }
+
       try {
         const result = await summaryService.generateBatch(entryIds, {
           force: Boolean(force),
+          contentPolicy: policy,
         });
         return reply.send(result);
       } catch (err: unknown) {

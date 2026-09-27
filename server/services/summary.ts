@@ -1,8 +1,9 @@
 import crypto from "node:crypto";
 import type { DatabaseService } from "../db/index.js";
 import type { MinifluxService } from "./miniflux.js";
-import { AIService, extractPlainText, PROMPT_VERSION } from "./ai.js";
+import { AIService, PROMPT_VERSION } from "./ai.js";
 import type { AppConfig } from "../config.js";
+import { selectContent, ContentSelectionError, type ContentPolicy, type ContentSource } from "./contentPolicy.js";
 
 export interface ArticleSummaryRecord {
   entry_id: number;
@@ -29,6 +30,9 @@ export interface ArticleSummaryRecord {
 export interface GenerateSummaryResult {
   record: ArticleSummaryRecord;
   cached: boolean;
+  contentSource: ContentSource;
+  matchedRuleId: string | null;
+  reason: string;
 }
 
 export interface BatchSummaryResultItem {
@@ -36,6 +40,9 @@ export interface BatchSummaryResultItem {
   status: "ready" | "failed";
   cached?: boolean;
   error?: string;
+  contentSource: ContentSource | null;
+  matchedRuleId: string | null;
+  reason: string;
 }
 
 export interface BatchSummaryResult {
@@ -88,15 +95,16 @@ export class SummaryService {
 
   async generate(
     entryId: number,
-    options: { force?: boolean } = {}
+    options: { force?: boolean; contentPolicy?: ContentPolicy } = {}
   ): Promise<GenerateSummaryResult> {
     // 1. Fetch article from Miniflux
     const article = await this.minifluxService.fetchArticle(entryId);
     if (!article) {
-      throw new Error(`Article ${entryId} not found in Miniflux`);
+      throw new ContentSelectionError(`Article ${entryId} not found in Miniflux`, null, null, "article_not_found");
     }
 
-    const normalizedText = extractPlainText(article.content || "");
+    const selection = await selectContent(article, options.contentPolicy, this.minifluxService);
+    const { text: normalizedText, contentSource, matchedRuleId, reason } = selection;
     const textLength = normalizedText.length;
     const contentHash = computeContentHash(normalizedText);
 
@@ -106,6 +114,7 @@ export class SummaryService {
     const feedTitle = article.feed?.title || article.feed_title || null;
     const publishedAt = article.published_at ? new Date(article.published_at) : null;
 
+    try {
     // 2. Check if an existing ready summary matches content_hash (when force is false)
     if (!options.force) {
       const existing = await this.get(entryId);
@@ -118,6 +127,7 @@ export class SummaryService {
         return {
           record: existing,
           cached: true,
+          contentSource, matchedRuleId, reason,
         };
       }
 
@@ -169,6 +179,7 @@ export class SummaryService {
           return {
             record: recheck.rows[0],
             cached: true,
+            contentSource, matchedRuleId, reason,
           };
         }
 
@@ -254,6 +265,7 @@ export class SummaryService {
         return {
           record: insertRes.rows[0],
           cached: false,
+          contentSource, matchedRuleId, reason,
         };
       }
 
@@ -310,6 +322,7 @@ export class SummaryService {
         return {
           record: insertRes.rows[0],
           cached: false,
+          contentSource, matchedRuleId, reason,
         };
       } catch (aiErr: unknown) {
         const sanitizedErr = sanitizeErrorMessage(aiErr);
@@ -360,11 +373,14 @@ export class SummaryService {
     } finally {
       client.release();
     }
+    } catch (err) {
+      throw new ContentSelectionError(sanitizeErrorMessage(err), contentSource, matchedRuleId, reason);
+    }
   }
 
   async generateBatch(
     entryIds: number[],
-    options: { force?: boolean } = {}
+    options: { force?: boolean; contentPolicy?: ContentPolicy } = {}
   ): Promise<BatchSummaryResult> {
     if (!Array.isArray(entryIds) || entryIds.length === 0) {
       throw new Error("entryIds must be a non-empty array of numbers");
@@ -389,13 +405,20 @@ export class SummaryService {
           entryId: id,
           status: "ready",
           cached: res.cached,
+          contentSource: res.contentSource,
+          matchedRuleId: res.matchedRuleId,
+          reason: res.reason,
         });
       } catch (err: unknown) {
         const errorMsg = sanitizeErrorMessage(err);
+        const selectionError = err instanceof ContentSelectionError ? err : null;
         results.push({
           entryId: id,
           status: "failed",
           error: errorMsg,
+          contentSource: selectionError?.contentSource ?? null,
+          matchedRuleId: selectionError?.matchedRuleId ?? null,
+          reason: selectionError?.reason ?? "generation_failed",
         });
       }
     }

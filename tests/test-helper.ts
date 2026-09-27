@@ -121,6 +121,15 @@ export function createTestDatabase(): DatabaseService {
 
 export class MockMinifluxService extends MinifluxService {
   public articles = new Map<number, MinifluxArticle>();
+  public originalContent = new Map<number, string>();
+  public extractionCalls: number[] = [];
+  public extractionFails = false;
+
+  async fetchOriginalContent(entryId: number): Promise<string> {
+    this.extractionCalls.push(entryId);
+    if (this.extractionFails) throw new Error("web extraction failed");
+    return this.originalContent.get(entryId) || "";
+  }
   public proxyHandler?: (
     path: string,
     method: string,

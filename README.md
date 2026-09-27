@@ -179,17 +179,28 @@ curl -X POST http://localhost:3000/internal/summaries/generate \
   -H "Content-Type: application/json" \
   -d '{
     "entryIds": [101, 102, 103],
-    "force": false
+    "force": false,
+    "contentPolicy": {
+      "version": "v1",
+      "defaultMode": "auto",
+      "rules": [
+        { "id": "36kr-newsflash", "host": "36kr.com", "pathPrefix": "/newsflashes/", "mode": "feed" }
+      ]
+    }
   }'
 ```
+
+`contentPolicy` is optional. Without it, the endpoint uses Miniflux content exactly as before. Rules match the article URL hostname and optional path prefix in array order; the first match wins. Otherwise `defaultMode` applies. `feed` uses stored Miniflux content and fails if it is empty. `extract` fetches original content through Miniflux. `auto` keeps nonempty feed content unless it contains an explicit preview marker, and extracts when content is empty or looks like a preview. The policy affects only entries in this request; existing summaries are not bulk regenerated. Existing content-hash caching and `force` behavior remain in effect. Invalid policies return HTTP 400.
+
+Each result reports `contentSource` (`feed`, `web`, or `null` if the article could not be loaded), `matchedRuleId` (`null` for the default mode), and a machine-readable `reason`. Reasons include `legacy_feed`, `policy_feed`, `policy_extract`, `feed_complete`, `feed_preview`, `feed_empty`, `extraction_failed`, and `article_not_found`. A failed extraction reports `contentSource: "web"` to identify the attempted source.
 
 **Response:**
 ```json
 {
   "results": [
-    { "entryId": 101, "status": "ready", "cached": true },
-    { "entryId": 102, "status": "ready", "cached": false },
-    { "entryId": 103, "status": "failed", "error": "Article 103 not found" }
+    { "entryId": 101, "status": "ready", "cached": true, "contentSource": "feed", "matchedRuleId": "36kr-newsflash", "reason": "policy_feed" },
+    { "entryId": 102, "status": "ready", "cached": false, "contentSource": "web", "matchedRuleId": null, "reason": "feed_preview" },
+    { "entryId": 103, "status": "failed", "error": "Article 103 not found in Miniflux", "contentSource": null, "matchedRuleId": null, "reason": "article_not_found" }
   ]
 }
 ```
