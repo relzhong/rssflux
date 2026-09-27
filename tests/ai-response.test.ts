@@ -41,11 +41,26 @@ describe("AI summary response validation", () => {
   });
 
   it("rejects a completion that ended at max_tokens even when its JSON parses", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+    const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ choices: [{ finish_reason: "length", message: { content: valid } }] }),
-    }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
     await expect(new AIService(createTestConfig()).generateSummary(article, "Article text"))
       .rejects.toThrow(/truncated|length/i);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries once with a larger output budget after length and accepts the complete response", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ choices: [{ finish_reason: "length", message: { content: '{"tldr":' } }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ choices: [{ finish_reason: "stop", message: { content: valid } }] }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(new AIService(createTestConfig()).generateSummary(article, "Article text"))
+      .resolves.toMatchObject({ summary: "- A readable summary point." });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).max_tokens).toBe(4000);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).max_tokens).toBe(8000);
   });
 });

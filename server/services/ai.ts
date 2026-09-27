@@ -36,13 +36,16 @@ export function stripThinkingTags(text: string): string {
 }
 
 export function isDisplayableSummaryText(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0 &&
-    !/^\s*(?:\{\s*"|\[\s*(?:\{|"))/.test(value);
+  return (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    !/^\s*(?:\{\s*"|\[\s*(?:\{|"))/.test(value)
+  );
 }
 
 export function parseAndValidateAIResponse(
   rawContent: string,
-  _fallbackModel: string
+  _fallbackModel: string,
 ): { tldr: string; summary: string; topics: string[]; importance: number } {
   const clean = stripThinkingTags(rawContent);
 
@@ -78,7 +81,10 @@ export function parseAndValidateAIResponse(
   }
 
   let importance = 3;
-  if (typeof result.importance === "number" && Number.isInteger(result.importance)) {
+  if (
+    typeof result.importance === "number" &&
+    Number.isInteger(result.importance)
+  ) {
     importance = Math.max(1, Math.min(5, result.importance));
   } else if (typeof result.importance === "string") {
     const parsedInt = parseInt(result.importance, 10);
@@ -100,7 +106,7 @@ export class AIService {
 
   async generateSummary(
     article: MinifluxArticle,
-    normalizedPlainText: string
+    normalizedPlainText: string,
   ): Promise<GeneratedSummaryResult> {
     if (!this.config.aiApiKey) {
       throw new Error("AI API Key is not configured on the server");
@@ -122,57 +128,70 @@ Return only the raw JSON object, without extra conversational commentary.`;
 
     const userPrompt = `Title: ${title}\n\n${truncatedContent}`;
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.config.aiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.config.aiModel,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        max_tokens: 4000,
-        temperature: 0.3,
-      }),
-    });
+    for (const maxTokens of [4000, 8000]) {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.config.aiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.config.aiModel,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          max_tokens: maxTokens,
+          temperature: 0.3,
+        }),
+      });
 
-    if (!response.ok) {
-      let errorDetails = "";
-      try {
-        const errorJson = (await response.json()) as { error?: { message?: string } };
-        errorDetails = errorJson.error?.message || response.statusText;
-      } catch {
-        errorDetails = response.statusText;
+      if (!response.ok) {
+        let errorDetails = "";
+        try {
+          const errorJson = (await response.json()) as {
+            error?: { message?: string };
+          };
+          errorDetails = errorJson.error?.message || response.statusText;
+        } catch {
+          errorDetails = response.statusText;
+        }
+        throw new Error(`AI API error ${response.status}: ${errorDetails}`);
       }
-      throw new Error(`AI API error ${response.status}: ${errorDetails}`);
+
+      const data = (await response.json()) as {
+        choices?: Array<{
+          finish_reason?: string;
+          message?: { content?: string };
+        }>;
+        model?: string;
+      };
+
+      const choice = data.choices?.[0];
+      if (choice?.finish_reason === "length") {
+        if (maxTokens === 4000) continue;
+        throw new Error("AI response truncated at token limit");
+      }
+      if (choice?.finish_reason && choice.finish_reason !== "stop") {
+        throw new Error("AI response did not finish normally");
+      }
+      const rawContent = choice?.message?.content || "";
+      const validated = parseAndValidateAIResponse(
+        rawContent,
+        this.config.aiModel,
+      );
+
+      return {
+        tldr: validated.tldr,
+        summary: validated.summary,
+        topics: validated.topics,
+        importance: validated.importance,
+        model: data.model || this.config.aiModel,
+        promptVersion: PROMPT_VERSION,
+      };
     }
 
-    const data = (await response.json()) as {
-      choices?: Array<{ finish_reason?: string; message?: { content?: string } }>;
-      model?: string;
-    };
-
-    const choice = data.choices?.[0];
-    if (choice?.finish_reason === "length") {
-      throw new Error("AI response truncated at token limit");
-    }
-    if (choice?.finish_reason && choice.finish_reason !== "stop") {
-      throw new Error("AI response did not finish normally");
-    }
-    const rawContent = choice?.message?.content || "";
-    const validated = parseAndValidateAIResponse(rawContent, this.config.aiModel);
-
-    return {
-      tldr: validated.tldr,
-      summary: validated.summary,
-      topics: validated.topics,
-      importance: validated.importance,
-      model: data.model || this.config.aiModel,
-      promptVersion: PROMPT_VERSION,
-    };
+    throw new Error("AI response truncated at token limit");
   }
 }
