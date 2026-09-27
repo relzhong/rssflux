@@ -1,7 +1,7 @@
 import type { AppConfig } from "../config.js";
 import type { MinifluxArticle } from "./miniflux.js";
 
-export const PROMPT_VERSION = "article-summary-v1";
+export const PROMPT_VERSION = "article-summary-v2";
 
 export interface GeneratedSummaryResult {
   tldr: string;
@@ -119,11 +119,12 @@ export class AIService {
     const systemPrompt = `You are an expert reading assistant and research analyst.
 Analyze the provided article and return a strictly valid JSON object matching this schema:
 {
-  "tldr": "1-3 sentences concise overview of the core conclusion or key event (in the same language as the article)",
-  "summary": "Detailed structured breakdown in Markdown bullet points highlighting main arguments, key data, and context (in the same language as the article)",
+  "tldr": "1-3 sentences stating the core conclusion or key event (in the same language as the article)",
+  "summary": "Markdown bullet points covering the important facts, arguments, data, and context (in the same language as the article)",
   "topics": ["topic1", "topic2"],
   "importance": 1-5 (Integer scale where 1: trivial/low value, 2: mildly useful, 3: useful, 4: important/worth reading, 5: exceptional/must read)
 }
+Choose the summary length from the article's substance, not its character count alone. For a brief or single-point article, usually use 2-3 concise bullets, but fewer if the source has fewer distinct facts. For an article with several distinct points, use 3-5 bullets. For a long, information-dense article, use up to 8 bullets so important findings and context are not lost. Each bullet should usually be one sentence, at most two. A long but repetitive article needs fewer bullets; a short article with several important facts may need more. Preserve concrete names, numbers, and qualifications when they matter. Do not pad with repetition, generic background, or speculation. Do not repeat the tldr verbatim in the summary.
 Return only the raw JSON object, without extra conversational commentary.`;
 
     const userPrompt = `Title: ${title}\n\n${truncatedContent}`;

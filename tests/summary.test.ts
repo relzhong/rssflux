@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import type { DatabaseService } from "../server/db/index.js";
+import { PROMPT_VERSION } from "../server/services/ai.js";
 import { createTestApp, type MockMinifluxService, type MockAIService } from "./test-helper.js";
 
 describe("Article Summary Integration (HTTP Seam)", () => {
@@ -92,7 +93,7 @@ describe("Article Summary Integration (HTTP Seam)", () => {
     expect(genData.summaryKind).toBe("ai");
     expect(genData.topics).toContain("Technology");
     expect(genData.importance).toBe(4);
-    expect(genData.promptVersion).toBe("article-summary-v1");
+    expect(genData.promptVersion).toBe(PROMPT_VERSION);
     expect(mockAi.generateCallCount).toBe(1);
 
     // 3. Verify record was written to PostgreSQL
