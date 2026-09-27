@@ -35,69 +35,53 @@ export function stripThinkingTags(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 }
 
+export function isDisplayableSummaryText(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0 &&
+    !/^\s*(?:\{\s*"|\[\s*(?:\{|"))/.test(value);
+}
+
 export function parseAndValidateAIResponse(
   rawContent: string,
-  fallbackModel: string
+  _fallbackModel: string
 ): { tldr: string; summary: string; topics: string[]; importance: number } {
   const clean = stripThinkingTags(rawContent);
 
-  // Try extracting JSON block if wrapped in markdown code fence
-  let jsonStr = clean;
-  const jsonMatch = clean.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (jsonMatch) {
-    jsonStr = jsonMatch[1];
-  } else {
-    // If there is leading/trailing text, extract substring between first { and last }
-    const firstBrace = clean.indexOf("{");
-    const lastBrace = clean.lastIndexOf("}");
-    if (firstBrace >= 0 && lastBrace > firstBrace) {
-      jsonStr = clean.slice(firstBrace, lastBrace + 1);
-    }
-  }
+  const jsonMatch = clean.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const jsonStr = jsonMatch ? jsonMatch[1] : clean;
 
-  let parsed: any;
+  let parsed: unknown;
   try {
     parsed = JSON.parse(jsonStr);
   } catch {
-    // If JSON parsing fails, fallback to simple heuristic structuring
-    const lines = clean
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
-    const tldr = lines.length > 0 ? lines[0].slice(0, 300) : "Summary unavailable";
-    const summary = clean;
-    return {
-      tldr,
-      summary,
-      topics: [],
-      importance: 3,
-    };
+    throw new Error("AI response contains invalid JSON");
   }
 
-  // Validate fields
-  let tldr = typeof parsed.tldr === "string" ? parsed.tldr.trim() : "";
-  if (!tldr && typeof parsed.summary === "string") {
-    tldr = parsed.summary.split("\n")[0]?.trim() || "";
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("AI response must be a JSON object");
   }
-  if (!tldr) {
-    tldr = "Summary unavailable";
+  const result = parsed as Record<string, unknown>;
+  if (!isDisplayableSummaryText(result.tldr)) {
+    throw new Error("AI response tldr is not displayable text");
   }
-
-  const summary = typeof parsed.summary === "string" ? parsed.summary.trim() : "";
+  if (!isDisplayableSummaryText(result.summary)) {
+    throw new Error("AI response summary is not displayable text");
+  }
+  const tldr = result.tldr.trim();
+  const summary = result.summary.trim();
 
   let topics: string[] = [];
-  if (Array.isArray(parsed.topics)) {
-    topics = parsed.topics
+  if (Array.isArray(result.topics)) {
+    topics = result.topics
       .filter((t: unknown) => typeof t === "string")
       .map((t: string) => t.trim())
       .filter((t: string) => t.length > 0);
   }
 
   let importance = 3;
-  if (typeof parsed.importance === "number" && Number.isInteger(parsed.importance)) {
-    importance = Math.max(1, Math.min(5, parsed.importance));
-  } else if (typeof parsed.importance === "string") {
-    const parsedInt = parseInt(parsed.importance, 10);
+  if (typeof result.importance === "number" && Number.isInteger(result.importance)) {
+    importance = Math.max(1, Math.min(5, result.importance));
+  } else if (typeof result.importance === "string") {
+    const parsedInt = parseInt(result.importance, 10);
     if (!isNaN(parsedInt)) {
       importance = Math.max(1, Math.min(5, parsedInt));
     }
@@ -151,7 +135,7 @@ Return only the raw JSON object, without extra conversational commentary.`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_tokens: 2000,
+        max_tokens: 4000,
         temperature: 0.3,
       }),
     });
@@ -168,11 +152,18 @@ Return only the raw JSON object, without extra conversational commentary.`;
     }
 
     const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
+      choices?: Array<{ finish_reason?: string; message?: { content?: string } }>;
       model?: string;
     };
 
-    const rawContent = data.choices?.[0]?.message?.content || "";
+    const choice = data.choices?.[0];
+    if (choice?.finish_reason === "length") {
+      throw new Error("AI response truncated at token limit");
+    }
+    if (choice?.finish_reason && choice.finish_reason !== "stop") {
+      throw new Error("AI response did not finish normally");
+    }
+    const rawContent = choice?.message?.content || "";
     const validated = parseAndValidateAIResponse(rawContent, this.config.aiModel);
 
     return {

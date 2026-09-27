@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import type { SummaryService } from "../services/summary.js";
+import { isUsableSummaryRecord, type SummaryService } from "../services/summary.js";
 
 interface SummaryRoutesOptions {
   summaryService: SummaryService;
@@ -24,7 +24,7 @@ export const summaryRoutes: FastifyPluginAsync<SummaryRoutesOptions> = async (
 
     try {
       const summary = await summaryService.get(entryId);
-      if (!summary || summary.status !== "ready") {
+      if (!summary || !isUsableSummaryRecord(summary)) {
         return reply.status(404).send({ error: "Summary not found" });
       }
       reply.header("Cache-Control", "private, max-age=86400");

@@ -2,6 +2,14 @@ import { persistentAtom } from "@nanostores/persistent";
 
 const MAX_CACHED_SUMMARIES = 200;
 
+const isDisplayableText = (value) =>
+  typeof value === "string" &&
+  value.trim().length > 0 &&
+  !/^\s*(?:\{\s*"|\[\s*(?:\{|"))/.test(value);
+
+const hasDisplayableSummary = (item) =>
+  item && isDisplayableText(item.summary) && isDisplayableText(item.tldr);
+
 // summary state per article id: { [articleId]: { loading, summary, tldr, model, error } }
 export const aiSummaries = persistentAtom(
   "aiSummaries",
@@ -13,7 +21,7 @@ export const aiSummaries = persistentAtom(
       const sliceKeys = keys.slice(-MAX_CACHED_SUMMARIES);
       for (const k of sliceKeys) {
         const item = val[k];
-        if (item && item.summary) {
+        if (hasDisplayableSummary(item)) {
           clean[k] = {
             loading: false,
             summary: item.summary,
@@ -27,7 +35,11 @@ export const aiSummaries = persistentAtom(
     },
     decode: (str) => {
       try {
-        return JSON.parse(str);
+        const decoded = JSON.parse(str);
+        if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) return {};
+        return Object.fromEntries(
+          Object.entries(decoded).filter(([, item]) => hasDisplayableSummary(item))
+        );
       } catch {
         return {};
       }
@@ -84,12 +96,18 @@ export const clearSummary = (articleId) => {
 export const fetchSummaryIfAvailable = async (articleId) => {
   if (!articleId) return null;
   const existing = aiSummaries.get()[articleId];
-  if (existing?.summary) return existing;
+  if (existing && !hasDisplayableSummary(existing)) clearSummary(articleId);
 
   try {
-    const res = await fetch(`/api/summary/${articleId}`);
+    const res = await fetch(`/api/summary/${articleId}`, { cache: "no-store" });
+    // A manual generation may have started while this lookup was in flight.
+    if (aiSummaries.get()[articleId]?.loading) return null;
     if (res.ok) {
       const data = await res.json();
+      if (!hasDisplayableSummary(data)) {
+        clearSummary(articleId);
+        return null;
+      }
       aiSummaries.set({
         ...aiSummaries.get(),
         [articleId]: {
@@ -102,8 +120,10 @@ export const fetchSummaryIfAvailable = async (articleId) => {
       });
       return data;
     }
+    if (res.status === 404) clearSummary(articleId);
   } catch (err) {
     console.error("Failed to fetch article summary:", err);
+    return hasDisplayableSummary(existing) ? existing : null;
   }
   return null;
 };

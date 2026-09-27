@@ -137,6 +137,33 @@ describe("Article Summary Integration (HTTP Seam)", () => {
     expect(mockAi.generateCallCount).toBe(2); // Called again!
   });
 
+  it("does not return or reuse a ready record containing a raw JSON fragment", async () => {
+    const content = "Complete article text. ".repeat(30);
+    mockMiniflux.articles.set(10920, {
+      id: 10920, user_id: 1, feed_id: 1, title: "Article 10920",
+      url: "https://example.com/10920", comments_url: "", author: "",
+      content: `<p>${content}</p>`, published_at: new Date().toISOString(),
+      created_at: new Date().toISOString(), status: "unread", starred: false,
+      reading_time: 2,
+    });
+    const { computeContentHash } = await import("../server/services/summary.js");
+    const broken = '{"tldr":"partial","summary":';
+    await db.query(
+      `INSERT INTO article_summary (entry_id, title, content_hash, text_length, tldr, summary,
+        topics, summary_kind, status) VALUES ($1, $2, $3, $4, $5, $6, '{}', 'ai', 'ready')`,
+      [10920, "Article 10920", computeContentHash(content.trim()), content.trim().length, broken, broken]
+    );
+
+    const oldGet = await app.inject({ method: "GET", url: "/api/summary/10920", cookies: { session: sessionCookie } });
+    expect(oldGet.statusCode).toBe(404);
+
+    const generated = await app.inject({ method: "POST", url: "/api/summary/10920/generate", cookies: { session: sessionCookie } });
+    expect(generated.statusCode).toBe(200);
+    expect(generated.json()).toMatchObject({ cached: false, status: "ready", summaryKind: "ai" });
+    expect(generated.json().summary).not.toMatch(/^\s*\{/);
+    expect(mockAi.generateCallCount).toBe(1);
+  });
+
   it("handles short articles (<= 500 chars) using extractive summary without calling LLM", async () => {
     const shortContent = "A concise tweet-sized update about release 1.0.";
 

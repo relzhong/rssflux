@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { DatabaseService } from "../db/index.js";
 import type { MinifluxService } from "./miniflux.js";
-import { AIService, PROMPT_VERSION } from "./ai.js";
+import { AIService, isDisplayableSummaryText, PROMPT_VERSION } from "./ai.js";
 import type { AppConfig } from "../config.js";
 import { selectContent, ContentSelectionError, type ContentPolicy, type ContentSource } from "./contentPolicy.js";
 
@@ -25,6 +25,12 @@ export interface ArticleSummaryRecord {
   last_error: string | null;
   generated_at: Date;
   updated_at: Date;
+}
+
+export function isUsableSummaryRecord(record: ArticleSummaryRecord): boolean {
+  return record.status === "ready" &&
+    isDisplayableSummaryText(record.tldr) &&
+    isDisplayableSummaryText(record.summary);
 }
 
 export interface GenerateSummaryResult {
@@ -120,9 +126,8 @@ export class SummaryService {
       const existing = await this.get(entryId);
       if (
         existing &&
-        existing.status === "ready" &&
-        existing.content_hash === contentHash &&
-        existing.tldr
+        isUsableSummaryRecord(existing) &&
+        existing.content_hash === contentHash
       ) {
         return {
           record: existing,
@@ -171,9 +176,8 @@ export class SummaryService {
         if (
           recheck.rowCount &&
           recheck.rowCount > 0 &&
-          recheck.rows[0].status === "ready" &&
-          recheck.rows[0].content_hash === contentHash &&
-          recheck.rows[0].tldr
+          isUsableSummaryRecord(recheck.rows[0]) &&
+          recheck.rows[0].content_hash === contentHash
         ) {
           await client.query("COMMIT");
           return {
