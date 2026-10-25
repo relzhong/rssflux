@@ -20,7 +20,7 @@
   "dependencies": {
     "@fastify/cookie": "^11.1.3",
     "@fastify/rate-limit": "^11.2.1",
-    "@fastify/static": "^10.1.6",
+    "@fastify/static": "^10.1.7",
     "@heroui/react": "3.2.6",
     "@icons-pack/react-simple-icons": "^11.2.0",
     "@nanostores/persistent": "^0.10.2",
@@ -39,7 +39,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.23",
-    "dexie": "^4.4.6",
+    "dexie": "^4.4.7",
     "dexie-react-hooks": "^1.1.7",
     "dotenv": "^17.4.2",
     "fastify": "^5.12.7",
@@ -84,11 +84,11 @@
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^15.12.0",
     "pg-mem": "^3.0.14",
-    "postcss": "^8.5.30",
+    "postcss": "^8.5.31",
     "tailwindcss": "^4.1.11",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "vite": "^6.4.4",
+    "vite": "^6.4.5",
     "vitest": "^4.1.12"
   }
 }
